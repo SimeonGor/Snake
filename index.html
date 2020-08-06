@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Game Snake</title>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+</body>
+<script>
+	const cnv = document.getElementById('canvas');
+	const ctx = cnv.getContext('2d');
+
+	cnv.width = 704;
+	cnv.height = 704;
+
+	ctx.fillStyle = 'black';
+	ctx.font = '48px monospace';
+	ctx.fillText('Press Space to start', 50, cnv.height / 2);
+	ctx.font = '24px monospace';
+	ctx.fillText('Press Esc to go to the main menu', 100, cnv.height / 2 + 100);
+
+	let keys = {};
+	let pause = false;
+	let frame = 0;
+
+	const randomX = () => parseInt(Math.random() * (cnv.width - 20) + 10);
+	const randomY = () => parseInt(Math.random() * (cnv.height - 20) + 10);
+
+	const initGame = () => {
+		player.length = 3;
+		player.x = 2;
+		player.y = 2;
+		player.direction = 'right';
+		player.segments = [];
+		player.scores = 0;
+
+		apple.x = randomX();
+		apple.y = randomY();
+
+		// barrier.segments = [];
+		// barrier.make(20);
+
+		pause = false;
+		cancelAnimationFrame(gameReq); 
+	}
+
+	const mainMenu = () => {
+		ctx.clearRect(0, 0, cnv.width, cnv.height);
+		drawBorder(2);
+
+		ctx.font = '24px monospace';
+		ctx.fillText('Press Esc to start/continue the game', 50, cnv.height / 4);
+		ctx.fillText('Use button "WASD" to control the snake', 50, cnv.height / 4 + 50);
+		ctx.fillText('Press Space to restart the game', 50, cnv.height / 4 + 100);
+		ctx.fillText('You can not run into your tale and walls', 50, cnv.height / 4 + 200);
+	}
+
+	let gameReq;
+
+	document.addEventListener('keydown', (event) => {
+		keys[event.code] = true;
+		if (event.keyCode == 32
+			|| (event.keyCode == 27 && player.segments.length == 0 && pause)) {
+			initGame();
+			gameReq = requestAnimationFrame(mainloop);
+		}
+		else if (event.keyCode == 27 && !gameover(player)) {
+			pause = !pause;
+			mainMenu();
+		}
+	});
+	
+	document.addEventListener('keyup', (event) => {
+		keys[event.code] = false;
+	});
+
+	// const mainloop = function() {
+	// 	requestAnimationFrame(mainloop);
+	// }
+
+	const collides = (a, b) => {
+		return a.x < b.x + b.width
+			&& a.x + a.width > b.x
+			&& a.y < b.y + b.height
+			&& a.y + a.height > b.y;
+	}	
+
+	const apple = {
+		x: randomX(),
+		y: randomY(),
+		width: 7.5,
+		height: 7.5,
+		radius: 5,
+		color: 'red',
+		collect: function(player) {
+			if (collides(apple, player)) {
+				this.randomApple();
+				player.scores++;
+				player.length++;
+			}
+
+			ctx.fillStyle = this.color;
+			ctx.beginPath();
+			ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+			ctx.fill();
+		},
+		randomApple: function() {
+			let col;
+			do {
+				this.x = randomX();
+				this.y = randomY();
+
+				col = false;
+
+				// for (let seg of barrier.segments) {
+				// 	if (collides(seg, apple)) col = true;
+				// }
+				for (seg of player.segments) {
+					if (collides(seg, apple)) col = true;
+				}
+			}
+			while (col);
+		}
+	}
+
+	const player = {
+		x: 2,
+		y: 2,
+		width: 19,
+		height: 19,
+		speed: 1,
+		dx: 20,
+		dy: 20,
+		direction: 'right',
+		scores: 0,
+		segments: [],
+		length: 3,
+		color: 'green',
+		move: function() {
+			// this.x += this.speed;
+			// this.y += this.speed;
+
+			// if (keys['KeyW']) this.y -= this.speed;
+			// if (keys['KeyS']) this.y += this.speed;
+			// if (keys['KeyA']) this.x -= this.speed;
+			// if (keys['KeyD']) this.x += this.speed;
+
+			if (keys['KeyW'] && this.direction != 'down') this.direction = 'up';
+			if (keys['KeyS'] && this.direction != 'up') this.direction = 'down';
+			if (keys['KeyA'] && this.direction != 'right') this.direction = 'left';
+			if (keys['KeyD'] && this.direction != 'left') this.direction = 'right';
+
+			if (this.direction == 'up') this.y -= this.dy;
+			if (this.direction == 'down') this.y += this.dy;
+			if (this.direction == 'left') this.x -= this.dx;
+			if (this.direction == 'right') this.x += this.dx;
+
+			// для версии с Game Over закоментировать следующие 2 строчки
+
+			// версия без границ
+			// this.y = (this.y + cnv.height) % cnv.height;
+			// this.x = (this.x + cnv.width) % cnv.width;
+
+			// новая версия с границами
+			// this.teleportation(2);
+			
+
+			this.segments.unshift({x: this.x, y: this.y});
+			if (this.segments.length > this.length) this.segments.pop();
+
+			ctx.fillStyle = this.color;
+			// ctx.fillRect(this.x, this.y, this.width, this.height);
+			for (let i = 0; i < this.segments.length; i++) {
+				ctx.fillRect(this.segments[i].x , this.segments[i].y, this.width, this.height)
+			}
+		},
+		teleportation: function(widthBorder) {
+			if (this.x < widthBorder) this.x = cnv.width - widthBorder - this.width;
+			if (this.x > cnv.width - widthBorder) this.x = widthBorder;
+			if (this.y < widthBorder) this.y = cnv.height - widthBorder - this.height;
+			if (this.y > cnv.height - widthBorder) this.y = widthBorder;
+		}
+	}
+
+	const barrier = {
+		width: player.width,
+		height: player.height,
+		segments: [],
+		color: 'black',
+		make: function(count) {
+			for (let i = 0; i < count; i++) {
+				this.segments.push({x: randomX(),
+									y : randomY(),
+									width: this.width,
+									height: this.height});
+			}
+		},
+		draw: function() {
+			ctx.fillStyle = this.color;
+			for (let seg of this.segments) {
+				ctx.fillRect(seg.x, seg.y, seg.width, seg.height);
+			}
+		}
+	}
+
+	const gameover = function(player) {
+		// для версии с Game Over раскоментировать следующие строчки
+		if (player.x < 2
+			|| player.x >= cnv.width - 2
+			|| player.y < 2
+			|| player.y >= cnv.height - 2) return 1;
+
+		for (let i = 1; i < player.segments.length; i++) {
+			if (player.x == player.segments[i].x 
+				&& player.y == player.segments[i].y) return 1;
+		}
+
+		for (let seg of barrier.segments) {
+			if (collides(player, seg)) return 1;
+		}
+		return 0;
+	}
+
+	const drawBorder = (widthBorder) => {
+		ctx.fillRect(0, 0, widthBorder, cnv.height);
+		ctx.fillRect(0, 0, cnv.width, widthBorder);
+		ctx.fillRect(cnv.width - widthBorder, 0, widthBorder, cnv.height);
+		ctx.fillRect(0, cnv.height - widthBorder, cnv.width, widthBorder);
+	}
+	drawBorder(2);
+
+	const mainloop = () => {
+		gameReq = requestAnimationFrame(mainloop);
+		frame += 1;
+		if (frame < 6) return;
+		if (pause) return;
+		frame = 0;
+		ctx.clearRect(0, 0, cnv.width, cnv.height);
+		drawBorder(2);
+
+		if (!gameover(player)) {
+			player.move();
+			apple.collect(player);
+			// barrier.draw();
+			ctx.fillStyle = 'black';
+
+			ctx.font = '16px monospace';
+			ctx.fillText('Press Esc to pause. Press Space to restart.', 10, 20);
+			ctx.font = '24px monospace';
+			ctx.fillText(`Собрано яблок: ${player.scores}`, 10, 50);		}
+		else {
+			ctx.font = '48px monospace';
+			ctx.fillText('Game Over. Try again!', 50, cnv.height / 2);
+			cancelAnimationFrame(gameReq);
+		}
+	}
+</script>
+</html>
